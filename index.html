@@ -1,0 +1,192 @@
+<html lang="vi" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Audio call</title>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=1" name="viewport"/>
+    <style>
+      html,body{
+        padding: 0;
+        margin: 0;
+        margin: 0 auto;
+      }
+
+      .content {
+        border: 1px solid #ddd;
+        padding: 20px;
+        border-radius: 10px;
+        width: auto;
+        margin: 0 10px;
+      }
+
+      .content .configuration {
+        font-size: 14px;
+      }
+
+      .content .configuration .row {
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+      }
+
+      .content .configuration .row label {
+        display: inline-block;
+        font-weight: 600;
+        width: 100px;
+        min-width: 100px;
+      }
+
+      .content .configuration .row input[type=text] {
+        width: 80px;
+        display: inline-block;
+      }
+
+      p + p {
+        margin-left: 10px;
+      }
+    </style>
+    <script src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/peerjs.min.js"></script>
+  </head>
+
+  <body>
+    <h1>Voice call</h1>
+    <div class="content">
+      <div class="configuration">
+        <div class="row">
+          <label for="txtId">
+            Id của bạn:
+          </label>
+          <input id="txtId" type="text" readonly disabled></input>
+        </div>
+        <div class="row">
+          <label for="txtParnerId">
+            Id cần kết nối:
+          </label>
+          <input id="txtParnerId" type="text"></input>
+        </div>
+        <div class="row">
+          <p id="lbStatus"></p>
+          <p id="lbStatusParner"></p>
+        </div>
+      </div>
+      <div>
+        <button id="btConnect">Kết nối</button>
+        <button id="btConnectId" disabled>Kết nối id khác</button>
+        <button id="btDisconnect" disabled>Ngắt kết nối</button>
+        <button id="btMute" disabled>Mute</button>
+      </div>
+    </div>
+  </body>
+  
+  <script>
+    $(() => {
+      const txtId = $('#txtId');
+      const txtParnerId = $('#txtParnerId');
+      const lbStatus = $('#lbStatus');
+      const lbStatusParner = $('#lbStatusParner');
+      const btConnect = $('#btConnect');
+      const btConnectId = $('#btConnectId');
+      const btDisconnect = $('#btDisconnect');
+      const btMute = $('#btMute');
+      
+      txtId.val(Math.round(Math.random() * 1e6));
+      let peer;
+      let myStream;
+      let callOther;
+      // const peerList = [];
+
+      const addAudioTag = (stream) => {
+        const audioElement = document.createElement('audio');
+        audioElement.srcObject = stream;
+        audioElement.play();
+        document.body.appendChild(audioElement);
+      }
+
+      const listenToCall = () => {
+        peer.on('call', (call) => {
+          call.answer(myStream);
+          callOther = call;
+          setEventOtherCall(call);
+        });
+      }
+
+      const setEventOtherCall = (call) => {
+        call.on('stream', (remoteStream) => {
+          lbStatusParner.text('Đã kết nối với đối tác');
+          btConnectId.attr('disabled', true);
+          btDisconnect.attr('disabled', false);
+          // if(!peerList.includes(callOther.peer)) {
+            addAudioTag(remoteStream);
+            // peerList.push(callOther.peer);
+          // }
+        });
+
+        call.on('error', () => {
+          lbStatusParner.text('lỗi kết nối');
+        });
+
+        call.on('close', () => {
+          btConnectId.attr('disabled', false);
+          btDisconnect.attr('disabled', true);
+          lbStatusParner.text('Đã ngắt kết nối với đối tác');
+        });
+      }
+
+      const getMediaLocal = async () => {
+        try {
+          myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+          lbStatus.text(`Lỗi lấy thông tin microphone: ${e.message}`);
+        }
+      }
+
+      btConnect.click(() => {
+        peer = new Peer(txtId.val());
+
+        peer.on('open', async (id) => {
+          await getMediaLocal()
+          listenToCall();
+          lbStatus.text('Đã kết nối server');
+          btConnect.attr('disabled', true);
+          btConnectId.attr('disabled', false);
+          btDisconnect.attr('disabled', true);
+          btMute.attr('disabled', false);
+        });
+
+        peer.on('close', () => {
+          lbStatus.text('ngắt kết nối server');
+          btConnect.attr('disabled', false);
+          btConnectId.attr('disabled', true);
+          btDisconnect.attr('disabled', true);
+          btMute.attr('disabled', true);
+        })
+      });
+
+      btConnectId.click(() => {
+        const parnerId =  txtParnerId.val();
+        if (!parnerId) {
+          return alert('Vui lòng nhập id cần kết nối');
+        }
+
+        callOther = peer.call(parnerId, myStream);
+        setEventOtherCall(callOther);
+      });
+
+      btDisconnect.click(() => {
+        // peer && peer.close();
+        if (callOther) {
+          callOther.close();
+        }
+      });
+
+      btMute.click(function () {
+        const bt = $(this);
+        if (myStream) {
+          const value = myStream.getAudioTracks()[0].enabled;
+          myStream.getAudioTracks()[0].enabled = !value;
+          bt.text(!value ? 'Mute' : 'Unmute');
+        }
+      });
+    });
+  </script>
+</html>
