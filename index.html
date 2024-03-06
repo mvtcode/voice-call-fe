@@ -141,7 +141,7 @@
       }
 
       btConnect.click(() => {
-        peer = new Peer(txtId.val());
+        peer = new Peer(txtId.val(), {host: location.host, path: '/myapp'});
 
         peer.on('open', async (id) => {
           await getMediaLocal()
